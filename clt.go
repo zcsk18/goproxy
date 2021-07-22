@@ -64,7 +64,7 @@ func process(client net.Conn) {
 		return
 	}
 
-	_, err = srv.Read(buff[:3])
+	_, err = srv.Read(buff)
 	if err != nil {
 		return
 	}
