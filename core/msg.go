@@ -12,6 +12,7 @@ var Pool = &sync.Pool{
 }
 
 const MaxValue  = 255
+const Dis = 4
 
 
 func Encode(b []byte, n int, dis byte) ([]byte) {
@@ -48,13 +49,13 @@ func ProxyRead(c net.Conn) ([]byte, int, error) {
 		return buff, n, err
 	}
 
-	buff = Decode(buff, n, 4)
+	buff = Decode(buff, n, Dis)
 	return buff, n, err
 }
 
 
 func ProxyWrite(c net.Conn, b []byte) (int, error) {
-	b = Encode(b, len(b), 4)
+	b = Encode(b, len(b), Dis)
 	n, err := c.Write(b)
 	return n, err
 }
