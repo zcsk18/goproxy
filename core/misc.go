@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
+	"strings"
 )
 
 func CheckAdress(adress string) bool{
@@ -43,4 +44,24 @@ func BytesToInt(b []byte) int {
 	binary.Read(bytesBuffer, binary.BigEndian, &x)
 
 	return int(x)
+}
+
+func GetHost(buff []byte) string {
+	headers := strings.Split(string(buff), "\r\n")
+	for _, header := range headers {
+		arr := strings.Split(header, ": ")
+		if strings.ToLower(arr[0]) == "host" {
+			if strings.Contains(arr[1], ":") {
+				return arr[1]
+			}
+			return arr[1] + ":80"
+		}
+	}
+	return ""
+}
+
+func GetMethod(buff []byte) string {
+	headers := strings.Split(string(buff), "\r\n")
+	arr := strings.Split(headers[0], " ")
+	return arr[0]
 }

@@ -34,7 +34,7 @@ func handleConn(c net.Conn) {
 			log.Printf("conenct %s suc \n", msg.Data)
 			go core.ProxyTransfer(c, dest)
 		case "p" :
-			dest.Write([]byte(msg.Data))
+			dest.Write(msg.Data)
 
 		default:
 			c.Close()
