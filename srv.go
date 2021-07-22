@@ -27,16 +27,19 @@ func main() {
 }
 
 func handshake_srv(client net.Conn) error {
-	msg, err := core.ProxyRecv(client)
+	buff := core.Pool.Get().([]byte)
+	defer core.Pool.Put(buff)
+
+	n, err := client.Read(buff)
 	if err != nil {
-		client.Close()
 		return err;
 	}
-	if string(msg.Data) != core.Token {
-		client.Close()
+
+	if string(buff[:n]) != core.Token {
 		return errors.New("token err");
 	}
-	core.ProxySend(client, "T", []byte("ok"))
+
+	client.Write([]byte("ok"))
 
 	return nil
 }
@@ -44,19 +47,26 @@ func handshake_srv(client net.Conn) error {
 func handle_clt(client net.Conn) {
 	defer client.Close()
 
-	handshake_srv(client)
+	err := handshake_srv(client)
+	if err != nil {
+		return
+	}
 
-	msg, err := core.ProxyRecv(client)
+	buff := core.Pool.Get().([]byte)
+	defer core.Pool.Put(buff)
+
+	n, err := client.Read(buff)
 	if err != nil {
 		return;
 	}
-	fmt.Printf("new connect from %s to %s \n",client.RemoteAddr(), msg.Data)
-	target, err := net.Dial("tcp", string(msg.Data))
+
+	fmt.Printf("new connect from %s to %s \n",client.RemoteAddr(), buff[:n])
+	target, err := net.Dial("tcp", string(buff[:n]))
 	defer target.Close()
 	if err != nil {
 		return;
 	}
-	core.ProxySend(client, "C", []byte("ok"))
+	client.Write([]byte("ok"))
 
 	go func() {
 		defer target.Close()
@@ -74,9 +84,6 @@ func handle_clt(client net.Conn) {
 			target.Write(buff[:n])
 		}
 	}()
-
-	buff := core.Pool.Get().([]byte)
-	defer core.Pool.Put(buff)
 
 	for{
 		n,err := target.Read(buff)

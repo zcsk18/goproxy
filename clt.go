@@ -48,17 +48,28 @@ func process(client net.Conn) {
 		return
 	}
 
-	core.ProxySend(srv, "t", []byte(core.Token))
-	_, err = core.ProxyRecv(srv)
+	buff := core.Pool.Get().([]byte)
+	defer core.Pool.Put(buff)
+
+	_, err = srv.Write([]byte(core.Token))
+	if err != nil {
+		return
+	}
+	_, err = srv.Read(buff)
 	if err != nil {
 		return
 	}
 
-	core.ProxySend(srv, "c", []byte(target))
-	_, err = core.ProxyRecv(srv)
+	_, err = srv.Write([]byte(target))
 	if err != nil {
 		return
 	}
+
+	_, err = srv.Read(buff)
+	if err != nil {
+		return
+	}
+
 	fmt.Printf("new connect from %s to %s \n", client.RemoteAddr(), target)
 	_, err = client.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 	if err != nil {
@@ -80,9 +91,6 @@ func process(client net.Conn) {
 			client.Write(buff[:n])
 		}
 	}()
-
-	buff := core.Pool.Get().([]byte)
-	defer core.Pool.Put(buff)
 
 	for{
 		n,err := client.Read(buff)
