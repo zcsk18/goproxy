@@ -42,11 +42,10 @@ func process(client net.Conn) {
 
 	destAddrPort := fmt.Sprintf("%s:%d", core.SrvHost, core.SrvPort)
 	srv, err := net.Dial("tcp", destAddrPort)
-	defer srv.Close()
-
 	if err != nil {
 		return
 	}
+	defer srv.Close()
 
 	buff := core.Pool.Get().([]byte)
 	defer core.Pool.Put(buff)

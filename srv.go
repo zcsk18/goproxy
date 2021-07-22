@@ -62,10 +62,11 @@ func handle_clt(client net.Conn) {
 
 	fmt.Printf("new connect from %s to %s \n",client.RemoteAddr(), buff[:n])
 	target, err := net.Dial("tcp", string(buff[:n]))
-	defer target.Close()
 	if err != nil {
 		return;
 	}
+	defer target.Close()
+
 	client.Write([]byte("ok"))
 
 	go func() {
