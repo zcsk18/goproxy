@@ -41,7 +41,7 @@ func ProxySend(c net.Conn, op string, data []byte) error {
 func ProxyRecv(c net.Conn) (*Msg, error){
 	buff_len := make([]byte, strconv.IntSize)
 	buff_op := make([]byte, 1)
-	buff_data := make([]byte, 1024*10)
+	buff_data := make([]byte, 65535)
 	msg := Msg{}
 	length, err := c.Read(buff_len);
 	if err != nil {
@@ -75,7 +75,7 @@ func ProxyRecv(c net.Conn) (*Msg, error){
 
 
 func ProxyTransfer(dest net.Conn, src net.Conn) {
-	buff_data := make([]byte, 1024*10)
+	buff_data := make([]byte, 1024*100)
 
 	for {
 		length, err := src.Read(buff_data)

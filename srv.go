@@ -32,15 +32,11 @@ func handleConn(c net.Conn) {
 				return
 			}
 			log.Printf("conenct %s suc \n", msg.Data)
+			core.ProxySend(c, "o", []byte("ok"))
 			go core.ProxyTransfer(c, dest)
 		case "p" :
 			dest.Write([]byte(msg.Data))
-
-		default:
-			c.Close()
 		}
-
-		core.ProxySend(c, "o", []byte("ok"))
 	}
 
 	log.Printf("connection closed : %s \n", c.RemoteAddr())
