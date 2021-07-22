@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"encoding/binary"
@@ -7,40 +7,6 @@ import (
 	"io"
 	"net"
 )
-
-func main() {
-	server, err := net.Listen("tcp", ":1080")
-	if err != nil {
-		fmt.Printf("Listen failed: %v\n", err)
-		return
-	}
-
-	for {
-		client, err := server.Accept()
-		if err != nil {
-			fmt.Printf("Accept failed: %v", err)
-			continue
-		}
-		go process(client)
-	}
-}
-
-func process(client net.Conn) {
-	if err := Socks5Auth(client); err != nil {
-		fmt.Println("auth error:", err)
-		client.Close()
-		return
-	}
-
-	target, err := Socks5Connect(client)
-	if err != nil {
-		fmt.Println("connect error:", err)
-		client.Close()
-		return
-	}
-
-	Socks5Forward(client, target)
-}
 
 func Socks5Auth(client net.Conn) (err error) {
 	buf := make([]byte, 256)
@@ -70,6 +36,60 @@ func Socks5Auth(client net.Conn) (err error) {
 
 	return nil
 }
+
+func Socks5Target(client net.Conn) (string, error){
+	buf := make([]byte, 256)
+
+	n, err := io.ReadFull(client, buf[:4])
+	if n != 4 {
+		return "", errors.New("read header: " + err.Error())
+	}
+
+	ver, cmd, _, atyp := buf[0], buf[1], buf[2], buf[3]
+	if ver != 5 || cmd != 1 {
+		return "", errors.New("invalid ver/cmd")
+	}
+
+	addr := ""
+	switch atyp {
+	case 1:
+		n, err = io.ReadFull(client, buf[:4])
+		if n != 4 {
+			return "", errors.New("invalid IPv4: " + err.Error())
+		}
+		addr = fmt.Sprintf("%d.%d.%d.%d", buf[0], buf[1], buf[2], buf[3])
+
+	case 3:
+		n, err = io.ReadFull(client, buf[:1])
+		if n != 1 {
+			return "", errors.New("invalid hostname: " + err.Error())
+		}
+		addrLen := int(buf[0])
+
+		n, err = io.ReadFull(client, buf[:addrLen])
+		if n != addrLen {
+			return "", errors.New("invalid hostname: " + err.Error())
+		}
+		addr = string(buf[:addrLen])
+
+	case 4:
+		return "", errors.New("IPv6: no supported yet")
+
+	default:
+		return "", errors.New("invalid atyp")
+	}
+
+	n, err = io.ReadFull(client, buf[:2])
+	if n != 2 {
+		return "", errors.New("read port: " + err.Error())
+	}
+
+	port := binary.BigEndian.Uint16(buf[:2])
+	destAddrPort := fmt.Sprintf("%s:%d", addr, port)
+
+	return destAddrPort, nil
+}
+
 
 func Socks5Connect(client net.Conn) (net.Conn, error) {
 	buf := make([]byte, 256)
