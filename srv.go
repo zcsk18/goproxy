@@ -73,11 +73,8 @@ func handle_clt(client net.Conn) {
 		defer target.Close()
 		defer client.Close()
 
-		buff := core.Pool.Get().([]byte)
-		defer core.Pool.Put(buff)
-
 		for {
-			n, err := core.ProxyRead(client, buff)
+			buff, n, err := core.ProxyRead(client)
 			if err != nil {
 				return
 			}

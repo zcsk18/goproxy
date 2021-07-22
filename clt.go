@@ -64,7 +64,7 @@ func process(client net.Conn) {
 		return
 	}
 
-	_, err = srv.Read(buff)
+	_, err = srv.Read(buff[:3])
 	if err != nil {
 		return
 	}
@@ -78,11 +78,9 @@ func process(client net.Conn) {
 	go func() {
 		defer srv.Close()
 		defer client.Close()
-		buff := core.Pool.Get().([]byte)
-		defer core.Pool.Put(buff)
 
 		for {
-			n, err := core.ProxyRead(srv, buff)
+			buff, n, err := core.ProxyRead(srv)
 			if err != nil {
 				return
 			}
