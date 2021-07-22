@@ -76,11 +76,10 @@ func handle_clt(client net.Conn) {
 		defer core.Pool.Put(buff)
 
 		for {
-			n, err := client.Read(buff)
+			n, err := core.ProxyRead(client, buff)
 			if err != nil {
 				return
 			}
-			core.Decode(&buff, n)
 			target.Write(buff[:n])
 		}
 	}()
@@ -90,7 +89,7 @@ func handle_clt(client net.Conn) {
 		if err != nil {
 			return
 		}
-		core.Encode(&buff, n)
-		client.Write(buff[:n])
+
+		core.ProxyWrite(client, buff[:n])
 	}
 }

@@ -20,18 +20,3 @@ func BytesToInt(b []byte) int {
 
 	return int(x)
 }
-
-
-func Encode(bufPtr *[]byte, num int) {
-	buf := *bufPtr
-	for i := 0; i < num; i++ {
-		buf[i] = ^buf[i]
-	}
-}
-
-func Decode(bufPtr *[]byte, num int) {
-	buf := *bufPtr
-	for i := 0; i < num; i++ {
-		buf[i] = ^buf[i]
-	}
-}

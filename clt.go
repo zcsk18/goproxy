@@ -83,11 +83,10 @@ func process(client net.Conn) {
 		defer core.Pool.Put(buff)
 
 		for {
-			n, err := srv.Read(buff)
+			n, err := core.ProxyRead(srv, buff)
 			if err != nil {
 				return
 			}
-			core.Decode(&buff, n)
 			client.Write(buff[:n])
 		}
 	}()
@@ -97,8 +96,7 @@ func process(client net.Conn) {
 		if err != nil {
 			return
 		}
-		core.Encode(&buff, n)
-		srv.Write(buff[:n])
+		core.ProxyWrite(srv, buff[:n])
 	}
 }
 
