@@ -11,11 +11,13 @@ var Pool = &sync.Pool{
 	},
 }
 
+const MaxValue  = 255
+
 
 func Encode(b []byte, n int, dis byte) ([]byte) {
 	for i:=0; i<n ;i++  {
-		if (b[i] + dis > 255) {
-			b[i] = 255 - b[i] + (dis - 1)
+		if (b[i] + dis > MaxValue) {
+			b[i] = MaxValue - b[i] + (dis - 1)
 		} else {
 			b[i] += dis
 		}
@@ -27,7 +29,7 @@ func Encode(b []byte, n int, dis byte) ([]byte) {
 func Decode(b []byte, n int, dis byte) ([]byte) {
 	for i:=0; i<n ;i++  {
 		if (b[i] - dis < 0) {
-			b[i] = 255 - (dis-1) - b[i]
+			b[i] = MaxValue - (dis-1) - b[i]
 		} else {
 			b[i] -= dis
 		}
