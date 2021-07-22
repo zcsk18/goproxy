@@ -32,15 +32,11 @@ func ProxyRead(c net.Conn, b []byte) (n int, err error) {
 		return n, err
 	}
 
-	Decode(&b, n)
-
 	return n, err
 }
 
 
 func ProxyWrite(c net.Conn, b []byte) (n int, err error) {
-	Encode(&b, n)
-
 	n, err = c.Write(b)
 	return n, err
 }
