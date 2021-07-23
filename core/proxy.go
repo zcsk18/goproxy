@@ -64,3 +64,7 @@ func (this *Proxy) Recv(b []byte) (int, error) {
 	this.cipher.Decode(b, n)
 	return n,err
 }
+
+func (this *Proxy) Close() {
+	this.c.Close()
+}

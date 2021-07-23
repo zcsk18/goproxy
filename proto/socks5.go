@@ -1,4 +1,4 @@
-package protocol
+package proto
 
 import (
 	"encoding/binary"
@@ -92,4 +92,9 @@ func (this *Socks5) GetTarget(c net.Conn) (string, error){
 	destAddrPort := fmt.Sprintf("%s:%d", addr, port)
 
 	return destAddrPort, nil
+}
+
+func (this *Socks5) Connected(c net.Conn) error {
+	_, err := c.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+	return err
 }

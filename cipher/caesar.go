@@ -5,6 +5,10 @@ type Caesar struct {
 	dis byte
 }
 
+func (this *Caesar) SetDis(dis byte) {
+	this.dis = dis
+}
+
 func (this *Caesar) Encode(b []byte, n int) {
 	const MaxValue = 255
 
