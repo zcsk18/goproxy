@@ -5,7 +5,12 @@ import (
 )
 
 func GetDriver (iniParser utils.IniParser) (driver Driver, err error) {
-	switch iniParser.GetString("common", "cipher") {
+	key := iniParser.GetString("common", "cipher")
+	if key == "" {
+		key = "caesar"
+	}
+
+	switch key {
 	case "caesar":
 		cip := Caesar{}
 		cip.SetDis(byte(iniParser.GetInt32("caesar", "dis")))
