@@ -2,92 +2,120 @@ package main
 
 import (
 	"fmt"
+	"goproxy/cipher"
 	"goproxy/core"
-	"log"
+	"goproxy/proto"
+	"goproxy/utils"
 	"net"
-	"net/http"
-	"os"
-	"time"
 )
 
-
-func init() {
-	f, _ := os.OpenFile("goproxy_clt" + ".log", os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
-	log.SetOutput(f)
-	log.SetOutput(os.Stdout)
-}
-
-func handleClient(c net.Conn) {
-	defer c.Close()
-
-	buff := make([]byte, 1024*10)
-	length,err := c.Read(buff)
-	if err != nil {
-		return
-	}
-
-	method := core.GetMethod(buff[:length])
-	host := core.GetHost(buff[:length])
-
-	srv, err := net.DialTimeout("tcp", core.ProxyIP+":"+core.ProxyPort, 60*time.Second)
-	if err != nil {
-		log.Println("connect srv err")
-		return
-	}
-	defer srv.Close()
-
-	core.ProxySend(srv, "c", []byte(host))
-	_, err = core.ProxyRecv(srv)
-	if err != nil {
-		log.Println("connect remote err")
-	}
-
-	if method == "CONNECT" {
-		c.Write([]byte("HTTP/1.0 200 Connection established\r\n\r\n"))
-		hijacker, ok := c.(http.Hijacker)
-		if !ok {
-			return
-		}
-
-		c, _, err = hijacker.Hijack()
-		if err != nil {
-			return
-		}
-
-	} else {
-		core.ProxySend(srv, "p", buff[:length])
-	}
-
-	go core.ProxyTransfer(srv, c)
-	for {
-		msg, err := core.ProxyRecv(srv)
-		if err != nil {
-			return
-		}
-		switch msg.Op {
-		case "p":
-			c.Write(msg.Data)
-		}
-	}
-
-}
-
 func main() {
-	port := core.LocalPort
+	port := utils.Ini.GetString("clt", "port")
+	if port == "" {
+		panic("cant find conf port")
+	}
 
-	l, err := net.Listen("tcp", ":"+port)
+	l, err := net.Listen("tcp", ":" + port)
 	if err != nil {
-		fmt.Println("listen error:", err)
+		panic("listen err :" + port)
+		return
+	}
+
+	pt, err := proto.GetDriver(utils.Ini)
+	if err != nil {
 		return
 	}
 
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			fmt.Println("accept error:", err)
-			break
+			panic("accept err")
+			continue
 		}
-		log.Printf("new clt : %s \n", c.RemoteAddr());
-		go handleClient(c)
+		fmt.Printf("new accept:%s\n", c.RemoteAddr())
+		go process_clt(c, pt)
+	}
+}
+
+func process_clt(c net.Conn, pt proto.Driver) {
+	defer c.Close()
+
+	err := pt.Auth(c)
+	if err != nil {
+		fmt.Printf("auth err: %s\n", err)
+		return;
+	}
+
+	target, err := pt.GetTarget(c)
+	if err != nil {
+		return
+	}
+
+	cip , err := cipher.GetDriver(utils.Ini)
+	if err != nil {
+		fmt.Printf("cipher err: %s\n", err)
+		return
+	}
+
+	fmt.Printf("srv %s:%s \n", utils.Ini.GetString("srv", "host"), utils.Ini.GetString("srv", "port"))
+	s, err := core.Connect(utils.Ini.GetString("srv", "host"), utils.Ini.GetString("srv", "port"), cip)
+	if err != nil {
+		fmt.Printf("Connect err: %s\n", err)
+		return
+	}
+	defer s.Close()
+
+	_, err = s.Send([]byte(utils.Ini.GetString("common", "token")))
+	if err != nil {
+		return
+	}
+
+	buff := core.Pool.Get().([]byte)
+	defer core.Pool.Put(buff)
+
+	_, err = s.Recv(buff)
+	if err != nil {
+		return
+	}
+
+	_, err = s.Send([]byte(target))
+	if err != nil {
+		return
+	}
+
+	_, err = s.Recv(buff)
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("new connect from %s to %s \n", c.RemoteAddr(), target)
+	err = pt.Connected(c)
+	if err != nil {
+		return
+	}
+
+
+	go func() {
+		defer s.Close()
+		defer c.Close()
+
+		buff := core.Pool.Get().([]byte)
+		defer core.Pool.Put(buff)
+
+		for {
+			n, err := s.Recv(buff)
+			if err != nil {
+				return
+			}
+			c.Write(buff[:n])
+		}
+	}()
+
+	for{
+		n,err := c.Read(buff)
+		if err != nil {
+			return
+		}
+		s.Send(buff[:n])
 	}
 }

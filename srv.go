@@ -1,70 +1,87 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"goproxy/cipher"
 	"goproxy/core"
-	"log"
+	"goproxy/utils"
 	"net"
-	"os"
-	"time"
 )
 
-func init() {
-	f, _ := os.OpenFile("goproxy_srv" + ".log", os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
-	log.SetOutput(f)
-	log.SetOutput(os.Stdout)
-}
-
-func handleConn(c net.Conn) {
-	defer c.Close()
-	var dest net.Conn
-
-	for {
-		msg, err := core.ProxyRecv(c)
-		if err != nil {
-			break;
-		}
-		switch msg.Op {
-		case "c" :
-			dest, err = net.DialTimeout("tcp", string(msg.Data), 60*time.Second)
-			if err != nil {
-				log.Println("connect remote err")
-				return
-			}
-			log.Printf("conenct %s suc \n", msg.Data)
-			go core.ProxyTransfer(c, dest)
-		case "p" :
-			dest.Write(msg.Data)
-
-		default:
-			c.Close()
-		}
-
-		core.ProxySend(c, "o", []byte("ok"))
-	}
-
-	log.Printf("connection closed : %s \n", c.RemoteAddr())
-}
-
-
 func main() {
-	port := core.ProxyPort
-
-	l, err := net.Listen("tcp", ":"+port)
+	cip , err := cipher.GetDriver(utils.Ini)
 	if err != nil {
-		fmt.Println("listen error:", err)
 		return
 	}
 
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			fmt.Println("accept error:", err)
-			break
-		}
-		log.Printf("new clt : %s \n", c.RemoteAddr());
-		go handleConn(c)
-	}
-
+	core.Listen(utils.Ini.GetString("srv", "port"), cip, process_srv)
 }
 
+func handshake(c core.Proxy) error {
+	buff := core.Pool.Get().([]byte)
+	defer core.Pool.Put(buff)
+
+	n, err := c.Recv(buff)
+	if err != nil {
+		return err
+	}
+
+	if string(buff[:n]) != utils.Ini.GetString("common", "token") {
+		return errors.New("token err");
+	}
+
+	c.Send([]byte("ok"))
+	return nil
+}
+
+func process_srv(c core.Proxy) {
+	defer c.Close()
+
+	err := handshake(c)
+	if err != nil {
+		return
+	}
+
+	buff := core.Pool.Get().([]byte)
+	defer core.Pool.Put(buff)
+
+	n, err := c.Recv(buff)
+	if err != nil {
+		return;
+	}
+	fmt.Printf("new connect from %s to %s \n",c.RemoteAddr(), buff[:n])
+
+	target, err := net.Dial("tcp", string(buff[:n]))
+	if err != nil {
+		return;
+	}
+	defer target.Close()
+
+	c.Send([]byte("ok"))
+
+	go func() {
+		defer target.Close()
+		defer c.Close()
+
+		buff := core.Pool.Get().([]byte)
+		defer core.Pool.Put(buff)
+
+		for {
+			n, err := c.Recv(buff)
+			if err != nil {
+				return
+			}
+			target.Write(buff[:n])
+		}
+	}()
+
+	for{
+		n,err := target.Read(buff)
+		if err != nil {
+			return
+		}
+
+		c.Send(buff[:n])
+	}
+}

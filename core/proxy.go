@@ -1,153 +1,74 @@
 package core
 
 import (
-	"io"
-	"log"
+	"fmt"
+	"goproxy/cipher"
 	"net"
-	"net/http"
-	"strings"
-	"time"
 )
 
-
-func Serve(w http.ResponseWriter, r *http.Request){
-	if r.Method == http.MethodConnect {
-		handleHttps(w, r)
-	} else {
-		handleHttp(w, r)
-	}
+type Proxy struct {
+	c net.Conn
+	cipher cipher.Driver
 }
 
-func Proxy(w http.ResponseWriter, r *http.Request) {
-	body := r.Body;
-	str := make([]byte, 0);
-	body.Read(str);
-	var serverConn, dialErr = net.Dial("tcp", string(str));
-	if dialErr != nil {
-		return;
+func Listen(port string,  cipher cipher.Driver, handle func(Proxy)) error {
+	s, err := net.Listen("tcp", ":" + port)
+	if err != nil {
+		return err
 	}
 
-	io.Copy(w, serverConn)
+	for {
+		c, err := s.Accept()
+		if err != nil {
+			fmt.Printf("Accept failed: %v", err)
+			break
+		}
+
+		p := Proxy{}
+		p.c = c
+		p.cipher = cipher
+
+		go handle(p)
+	}
+
+	return err
 }
 
-
-
-func handleHttps(w http.ResponseWriter, r *http.Request){
-	destConn, err := net.DialTimeout("tcp", ProxyIP+":"+ProxyPort, 60*time.Second)
+func Connect(host string, port string, cipher cipher.Driver) (p Proxy, err error) {
+	c, err := net.Dial("tcp", fmt.Sprintf("%s:%s", host, port))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer destConn.Close()
-
-	ProxySend(destConn, "c", []byte(r.RequestURI))
-	msg, err := ProxyRecv(destConn)
-	if err != nil {
-		log.Println("proxy srv read err")
-		return;
-	}
-	if msg.Op != "o" {
-		log.Println("proxy srv handshak err")
-		return;
-	}
-	log.Printf("proxy srv connect %s\n", msg.Data)
-
-	w.WriteHeader(http.StatusOK)
-
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
-		return
+		return p, err
 	}
 
-	clientConn, _, err := hijacker.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-	}
-	defer clientConn.Close()
+	p.c = c
+	p.cipher = cipher
 
-	log.Println("proxy start")
-	go ProxyTransfer(destConn, clientConn)
-	for{
-		msg, err := ProxyRecv(destConn)
-		if err != nil {
-			break;
-		}
-		switch msg.Op {
-		case "p" :
-			clientConn.Write([]byte(msg.Data))
-		}
-	}
-	log.Println("proxy over")
+	return p, nil
 }
 
+func (this *Proxy) SetCipher(driver cipher.Driver) {
+	this.cipher = driver
+}
 
-func handleHttp(w http.ResponseWriter, r *http.Request){
-	destConn, err := net.DialTimeout("tcp", ProxyIP+":"+ProxyPort, 60*time.Second)
+func (this *Proxy) Send(b []byte) (int, error) {
+	this.cipher.Encode(b, len(b))
+	return this.c.Write(b)
+}
+
+func (this *Proxy) Recv(b []byte) (int, error) {
+	n, err := this.c.Read(b)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	defer destConn.Close()
-
-	host := r.Host
-	if !strings.Contains(host, ":") {
-		host += ":80"
+		return n,err
 	}
 
-	log.Println(host)
+	this.cipher.Decode(b, n)
+	return n,err
+}
 
-	ProxySend(destConn, "c", []byte(host))
-	msg, err := ProxyRecv(destConn)
-	if err != nil {
-		log.Println("proxy srv read err")
-		return;
-	}
-	if msg.Op != "o" {
-		log.Println("proxy srv handshak err")
-		return;
-	}
-	log.Printf("proxy srv connect %s\n", msg.Data)
+func (this *Proxy) RemoteAddr() net.Addr {
+	return this.c.RemoteAddr()
+}
 
-	var buff string
-	buff += r.Method + " " + r.RequestURI + " " + "\r\n"
-
-	for k,v := range(r.Header) {
-		buff += k + ": "
-		for id,n := range (v) {
-			if id > 0 {
-				buff += ", "
-			}
-			buff += n
-		}
-		buff += "\r\n"
-	}
-
-	buff += "\r\n"
-
-	ProxySend(destConn, "p", []byte(buff))
-
-	log.Printf("%s \n", buff)
-
-	go func() {
-		buff := make([]byte, 1024*10)
-		n,err := r.Body.Read(buff)
-		if err != nil {
-			return
-		}
-		ProxySend(destConn, "p", buff[:n])
-	}()
-
-	for{
-		msg, err := ProxyRecv(destConn)
-		if err != nil {
-			destConn.Close()
-			break;
-		}
-		switch msg.Op {
-		case "p" :
-			w.Write([]byte(msg.Data))
-		}
-	}
-	log.Println("proxy over")
+func (this *Proxy) Close() {
+	this.c.Close()
 }
