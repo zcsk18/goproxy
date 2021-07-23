@@ -26,3 +26,5 @@
     ;凯撒加密 偏移量(0 - 255)
     dis = 5
 
+#测试
+    curl --socks5-hostname 127.0.0.1:1081 https://google.com
