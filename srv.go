@@ -15,7 +15,7 @@ func main() {
 		return
 	}
 
-	core.Listen(utils.Ini.GetString("srv", "port"), cip, process_srv)
+	core.Listen(utils.Ini.GetString("srv", "port"), cip, process)
 }
 
 func handshake(c core.Proxy) error {
@@ -35,7 +35,7 @@ func handshake(c core.Proxy) error {
 	return nil
 }
 
-func process_srv(c core.Proxy) {
+func process(c core.Proxy) {
 	defer c.Close()
 
 	err := handshake(c)
