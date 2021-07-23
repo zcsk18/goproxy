@@ -76,7 +76,7 @@ func (this *Proxy) Close() {
 }
 
 func (this *Proxy) HandShakeClt() error {
-	_, err := this.Send([]byte(utils.Ini.GetString("common", "token")))
+	_, err := this.Send([]byte(utils.GetIniParser().GetString("common", "token")))
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (this *Proxy) HandShakeSrv() error {
 		return err
 	}
 
-	if string(buff[:n]) != utils.Ini.GetString("common", "token") {
+	if string(buff[:n]) != utils.GetIniParser().GetString("common", "token") {
 		return errors.New("token err");
 	}
 

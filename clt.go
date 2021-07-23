@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	port := utils.Ini.GetString("clt", "port")
+	port := utils.GetIniParser().GetString("clt", "port")
 	if port == "" {
 		panic("cant find conf port")
 	}
@@ -18,7 +18,7 @@ func main() {
 		return
 	}
 
-	driver, err := proto.GetDriver(utils.Ini)
+	driver, err := proto.GetDriver(utils.GetIniParser())
 	if err != nil {
 		return
 	}

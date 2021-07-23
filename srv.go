@@ -9,12 +9,12 @@ import (
 )
 
 func main() {
-	cip , err := cipher.GetDriver(utils.Ini)
+	cip , err := cipher.GetDriver(utils.GetIniParser())
 	if err != nil {
 		return
 	}
 
-	core.Listen(utils.Ini.GetString("srv", "port"), cip, process)
+	core.Listen(utils.GetIniParser().GetString("srv", "port"), cip, process)
 }
 
 func process(c core.Proxy) {

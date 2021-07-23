@@ -116,13 +116,13 @@ func (this *Socks5) Process (c net.Conn) {
 		return
 	}
 
-	cip , err := cipher.GetDriver(utils.Ini)
+	cip , err := cipher.GetDriver(utils.GetIniParser())
 	if err != nil {
 		fmt.Printf("cipher err: %s\n", err)
 		return
 	}
 
-	s, err := core.Connect(utils.Ini.GetString("srv", "host"), utils.Ini.GetString("srv", "port"), cip)
+	s, err := core.Connect(utils.GetIniParser().GetString("srv", "host"), utils.GetIniParser().GetString("srv", "port"), cip)
 	if err != nil {
 		fmt.Printf("Connect err: %s\n", err)
 		return

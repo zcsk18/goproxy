@@ -12,13 +12,17 @@ type IniParserError struct {
 	error_info string
 }
 
-var Ini IniParser
+var inst IniParser
 
 func init() {
-	err := Ini.Load("conf.ini")
+	err := inst.Load("conf.ini")
 	if err != nil {
 		panic("cant find conf.ini")
 	}
+}
+
+func GetIniParser() IniParser {
+	return inst
 }
 
 
