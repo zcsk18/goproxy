@@ -3,51 +3,42 @@ package main
 import (
 	"errors"
 	"fmt"
+	"goproxy/cipher"
 	"goproxy/core"
+	"goproxy/utils"
 	"net"
-	"strconv"
 )
 
 func main() {
-	server, err := net.Listen("tcp", ":" + strconv.Itoa(core.SrvPort))
+	cip , err := cipher.GetDriver(utils.Ini)
 	if err != nil {
-		fmt.Printf("Listen failed: %v\n", err)
 		return
 	}
 
-	for {
-		client, err := server.Accept()
-		if err != nil {
-			fmt.Printf("Accept failed: %v", err)
-			continue
-		}
-
-		go handle_clt(client)
-	}
+	core.Listen(utils.Ini.GetString("srv", "port"), cip, process_srv)
 }
 
-func handshake_srv(client net.Conn) error {
+func handshake(c core.Proxy) error {
 	buff := core.Pool.Get().([]byte)
 	defer core.Pool.Put(buff)
 
-	n, err := client.Read(buff)
+	n, err := c.Recv(buff)
 	if err != nil {
-		return err;
+		return err
 	}
 
-	if string(buff[:n]) != core.Token {
+	if string(buff[:n]) != utils.Ini.GetString("common", "token") {
 		return errors.New("token err");
 	}
 
-	client.Write([]byte("ok"))
-
+	c.Send([]byte("ok"))
 	return nil
 }
 
-func handle_clt(client net.Conn) {
-	defer client.Close()
+func process_srv(c core.Proxy) {
+	defer c.Close()
 
-	err := handshake_srv(client)
+	err := handshake(c)
 	if err != nil {
 		return
 	}
@@ -55,26 +46,29 @@ func handle_clt(client net.Conn) {
 	buff := core.Pool.Get().([]byte)
 	defer core.Pool.Put(buff)
 
-	n, err := client.Read(buff)
+	n, err := c.Recv(buff)
 	if err != nil {
 		return;
 	}
+	fmt.Printf("new connect from %s to %s \n",c.RemoteAddr(), buff[:n])
 
-	fmt.Printf("new connect from %s to %s \n",client.RemoteAddr(), buff[:n])
 	target, err := net.Dial("tcp", string(buff[:n]))
 	if err != nil {
 		return;
 	}
 	defer target.Close()
 
-	client.Write([]byte("ok"))
+	c.Send([]byte("ok"))
 
 	go func() {
 		defer target.Close()
-		defer client.Close()
+		defer c.Close()
+
+		buff := core.Pool.Get().([]byte)
+		defer core.Pool.Put(buff)
 
 		for {
-			buff, n, err := core.ProxyRead(client)
+			n, err := c.Recv(buff)
 			if err != nil {
 				return
 			}
@@ -88,6 +82,6 @@ func handle_clt(client net.Conn) {
 			return
 		}
 
-		core.ProxyWrite(client, buff[:n])
+		c.Send(buff[:n])
 	}
 }

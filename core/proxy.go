@@ -18,14 +18,14 @@ func Listen(port string,  cipher cipher.Driver, handle func(Proxy)) error {
 	}
 
 	for {
-		client, err := s.Accept()
+		c, err := s.Accept()
 		if err != nil {
 			fmt.Printf("Accept failed: %v", err)
 			break
 		}
 
 		p := Proxy{}
-		p.c = client
+		p.c = c
 		p.cipher = cipher
 
 		go handle(p)
@@ -35,7 +35,7 @@ func Listen(port string,  cipher cipher.Driver, handle func(Proxy)) error {
 }
 
 func Connect(host string, port string, cipher cipher.Driver) (p Proxy, err error) {
-	c, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+	c, err := net.Dial("tcp", fmt.Sprintf("%s:%s", host, port))
 	if err != nil {
 		return p, err
 	}
@@ -63,6 +63,10 @@ func (this *Proxy) Recv(b []byte) (int, error) {
 
 	this.cipher.Decode(b, n)
 	return n,err
+}
+
+func (this *Proxy) RemoteAddr() net.Addr {
+	return this.c.RemoteAddr()
 }
 
 func (this *Proxy) Close() {
