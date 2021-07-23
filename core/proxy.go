@@ -1,8 +1,10 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"goproxy/cipher"
+	"goproxy/utils"
 	"net"
 )
 
@@ -71,4 +73,38 @@ func (this *Proxy) RemoteAddr() net.Addr {
 
 func (this *Proxy) Close() {
 	this.c.Close()
+}
+
+func (this *Proxy) HandShakeClt() error {
+	_, err := this.Send([]byte(utils.Ini.GetString("common", "token")))
+	if err != nil {
+		return err
+	}
+
+	buff := Pool.Get().([]byte)
+	defer Pool.Put(buff)
+
+	_, err = this.Recv(buff)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (this *Proxy) HandShakeSrv() error {
+	buff := Pool.Get().([]byte)
+	defer Pool.Put(buff)
+
+	n, err := this.Recv(buff)
+	if err != nil {
+		return err
+	}
+
+	if string(buff[:n]) != utils.Ini.GetString("common", "token") {
+		return errors.New("token err");
+	}
+
+	this.Send([]byte("ok"))
+	return nil
 }

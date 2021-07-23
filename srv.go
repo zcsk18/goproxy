@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"goproxy/cipher"
 	"goproxy/core"
@@ -18,27 +17,10 @@ func main() {
 	core.Listen(utils.Ini.GetString("srv", "port"), cip, process)
 }
 
-func handshake(c core.Proxy) error {
-	buff := core.Pool.Get().([]byte)
-	defer core.Pool.Put(buff)
-
-	n, err := c.Recv(buff)
-	if err != nil {
-		return err
-	}
-
-	if string(buff[:n]) != utils.Ini.GetString("common", "token") {
-		return errors.New("token err");
-	}
-
-	c.Send([]byte("ok"))
-	return nil
-}
-
 func process(c core.Proxy) {
 	defer c.Close()
 
-	err := handshake(c)
+	err := c.HandShakeSrv()
 	if err != nil {
 		return
 	}

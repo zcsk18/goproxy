@@ -129,23 +129,15 @@ func (this *Socks5) Process (c net.Conn) {
 	}
 	defer s.Close()
 
-	_, err = s.Send([]byte(utils.Ini.GetString("common", "token")))
+	s.HandShakeClt()
+
+	_, err = s.Send([]byte(target))
 	if err != nil {
 		return
 	}
 
 	buff := core.Pool.Get().([]byte)
 	defer core.Pool.Put(buff)
-
-	_, err = s.Recv(buff)
-	if err != nil {
-		return
-	}
-
-	_, err = s.Send([]byte(target))
-	if err != nil {
-		return
-	}
 
 	_, err = s.Recv(buff)
 	if err != nil {
