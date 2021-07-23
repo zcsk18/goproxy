@@ -4,7 +4,7 @@ import (
 	"goproxy/utils"
 )
 
-func GetDriver (iniParser utils.IniParser) (driver Driver, err error) {
+func GetDriver (iniParser *utils.IniParser) (driver Driver, err error) {
 	key := iniParser.GetString("common", "cipher")
 	if key == "" {
 		key = "caesar"

@@ -21,8 +21,8 @@ func init() {
 	}
 }
 
-func GetIniParser() IniParser {
-	return inst
+func GetIniParser() *IniParser {
+	return &inst
 }
 
 
