@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"goproxy/proto"
 	"goproxy/utils"
 	"net"
@@ -19,7 +18,7 @@ func main() {
 		return
 	}
 
-	pt, err := proto.GetDriver(utils.Ini)
+	driver, err := proto.GetDriver(utils.Ini)
 	if err != nil {
 		return
 	}
@@ -30,7 +29,6 @@ func main() {
 			panic("accept err")
 			continue
 		}
-		fmt.Printf("new accept:%s\n", c.RemoteAddr())
-		go pt.Process(c)
+		go driver.Process(c)
 	}
 }

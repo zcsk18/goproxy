@@ -122,7 +122,6 @@ func (this *Socks5) Process (c net.Conn) {
 		return
 	}
 
-	fmt.Printf("srv %s:%s \n", utils.Ini.GetString("srv", "host"), utils.Ini.GetString("srv", "port"))
 	s, err := core.Connect(utils.Ini.GetString("srv", "host"), utils.Ini.GetString("srv", "port"), cip)
 	if err != nil {
 		fmt.Printf("Connect err: %s\n", err)
